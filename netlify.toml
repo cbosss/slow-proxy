@@ -1,0 +1,4 @@
+[[redirects]]
+    from = "/proxy/*"
+    to = "https://02f3-174-7-177-80.ngrok.io/:splat"
+    status = 200
