@@ -20,4 +20,6 @@ ngrok http <port>
 
 - Hit the endpoint:
 
+```shell
 hcurl cdn-glo-aws-sfo-11 https://cbosss-slow-proxy.netlify.app/proxy/slow/1m -X PATCH
+```
