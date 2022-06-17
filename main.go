@@ -99,6 +99,8 @@ func (s *Server) slow(rw http.ResponseWriter, req *http.Request) {
 
 	for {
 		select {
+		case <-req.Context().Done():
+			return
 		case <-s.ctx.Done():
 			return
 		case <-timer.C:
