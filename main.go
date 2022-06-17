@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -24,7 +25,7 @@ func main() {
 	logger := setupLogging()
 	defer logger.Sync()
 
-	server := newServer(logger, addr)
+	server := newServer(ctx, logger, addr)
 
 	runningCtx, runningCancel := context.WithCancel(ctx)
 	defer runningCancel()
@@ -48,11 +49,12 @@ func main() {
 }
 
 type Server struct {
+	ctx    context.Context
 	logger *zap.Logger
 }
 
-func newServer(logger *zap.Logger, addr string) *http.Server {
-	srv := Server{logger: logger}
+func newServer(ctx context.Context, logger *zap.Logger, addr string) *http.Server {
+	srv := Server{ctx: ctx, logger: logger}
 	return &http.Server{
 		Addr:    addr,
 		Handler: srv.handler(),
@@ -62,7 +64,12 @@ func newServer(logger *zap.Logger, addr string) *http.Server {
 func (s *Server) handler() http.Handler {
 	r := mux.NewRouter()
 	r.HandleFunc("/slow/{duration}", s.slow)
+	r.HandleFunc("/fail", s.fail)
 	return r
+}
+
+func (s *Server) fail(rw http.ResponseWriter, req *http.Request) {
+	rw.WriteHeader(http.StatusGatewayTimeout)
 }
 
 func (s *Server) slow(rw http.ResponseWriter, req *http.Request) {
@@ -84,11 +91,34 @@ func (s *Server) slow(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	logger.Info("starting request")
-	logger.Sugar().Infof("pausing for %s", pause)
-	time.Sleep(pause)
-	logger.Info("finishing request")
 
-	return
+	logger.Sugar().Infof("pausing for %s", pause)
+	timer := time.NewTimer(pause)
+	ticker := time.NewTicker(time.Second)
+	defer logger.Info("finishing request")
+
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-timer.C:
+			return
+		case tick := <-ticker.C:
+			logger.Info("tick")
+			_, err := rw.Write([]byte(fmt.Sprintf("tick: %s\n", tick)))
+			if err != nil {
+				logger.With(zap.Error(err)).Error("failed to write tick")
+				return
+			}
+
+			if f, ok := rw.(http.Flusher); ok {
+				logger.Info("flush")
+				f.Flush()
+			}
+
+		}
+	}
+
 }
 
 func setupLogging() *zap.Logger {

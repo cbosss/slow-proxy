@@ -16,3 +16,8 @@ Start ngrok. This allows you to proxy to a local app.
 ngrok http <port>
 ```
 
+Change your netlify.toml to point to the ngrok url.
+
+Hit the endpoint:
+
+hcurl cdn-glo-aws-sfo-11 https://cbosss-slow-proxy.netlify.app/proxy/slow/1m -X PATCH
