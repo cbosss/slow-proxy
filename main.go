@@ -78,6 +78,8 @@ func (s *Server) slow(rw http.ResponseWriter, req *http.Request) {
 		zap.String("url", req.URL.String()),
 	)
 
+	logger.With(zap.Any("header", req.Header)).Info("incoming request headers")
+
 	duration := mux.Vars(req)["duration"]
 	if duration == "" {
 		logger.Info("using default duration")
@@ -100,6 +102,7 @@ func (s *Server) slow(rw http.ResponseWriter, req *http.Request) {
 	for {
 		select {
 		case <-req.Context().Done():
+			logger.Info("request context cancelled")
 			return
 		case <-s.ctx.Done():
 			return
